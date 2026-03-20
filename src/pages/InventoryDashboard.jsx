@@ -11,8 +11,10 @@ const InventoryDashboard = () => {
     const [inventory, setInventory] = useState([]);
     const [loading, setLoading] = useState(true);
 
-    const [requests, setRequests] = useState([]);
-    const [requestLoadError, setRequestLoadError] = useState('');
+    const [emergencyRequests, setEmergencyRequests] = useState([]);
+    const [hospitalRequests, setHospitalRequests] = useState([]);
+    const [emergencyLoadError, setEmergencyLoadError] = useState('');
+    const [hospitalLoadError, setHospitalLoadError] = useState('');
     const [sendingForRequest, setSendingForRequest] = useState({});
     const [dispatchLoading, setDispatchLoading] = useState(null);
 
@@ -31,33 +33,56 @@ const InventoryDashboard = () => {
             });
     };
 
-    const mapRequestDefaults = (data) => {
-        const defaults = {};
-        data.filter(r => (r.status || '').toUpperCase() !== 'FULFILLED').forEach(r => {
-            const remaining = Math.max(0, (r.unitsRequested || 0) - (r.unitsFulfilled || 0));
-            defaults[r.id] = String(Math.max(1, remaining));
+    const mapRequestDefaults = (...requestLists) => {
+        setSendingForRequest(prev => {
+            const next = { ...prev };
+            requestLists.flat().forEach(r => {
+                if ((r.status || '').toUpperCase() === 'FULFILLED') {
+                    delete next[r.id];
+                    return;
+                }
+
+                const remaining = Math.max(0, (r.unitsRequested || 0) - (r.unitsFulfilled || 0));
+                next[r.id] = String(Math.max(1, remaining));
+            });
+            return next;
         });
-        setSendingForRequest(defaults);
     };
 
-    const fetchRequests = () => {
-        setRequestLoadError('');
+    const fetchEmergencyRequests = () => {
+        setEmergencyLoadError('');
         api.get('/api/emergency/requests/all')
             .then(res => {
                 const data = res.data || [];
-                setRequests(data);
+                setEmergencyRequests(data);
                 mapRequestDefaults(data);
             })
             .catch(err => {
-                console.error('Error fetching requests', err);
-                setRequests([]);
-                setRequestLoadError('Unable to load blood requests.');
+                console.error('Error fetching emergency requests', err);
+                setEmergencyRequests([]);
+                setEmergencyLoadError('Unable to load emergency requests.');
+            });
+    };
+
+    const fetchHospitalRequests = () => {
+        setHospitalLoadError('');
+        api.get('/api/hospital-requests')
+            .then(res => {
+                const data = res.data || [];
+                setHospitalRequests(data);
+                mapRequestDefaults(data);
+            })
+            .catch(err => {
+                console.error('Error fetching hospital requests', err);
+                setHospitalRequests([]);
+                setHospitalLoadError('Unable to load hospital requests.');
             });
     };
 
     useEffect(() => {
         fetchInventory();
-        fetchRequests();
+        fetchEmergencyRequests();
+        fetchHospitalRequests();
     }, []);
 
     const getStatusStyle = (status, safetyFlag) => {
@@ -70,17 +95,25 @@ const InventoryDashboard = () => {
         return { background: '#FEF3C7', color: '#92400E', border: '1px solid #FCD34D' };
     };
 
-    const handleSendRequest = async (requestId) => {
+    const handleSendRequest = async (requestId, requestType) => {
         const units = parseInt(sendingForRequest[requestId] || '0', 10);
         if (!units || units <= 0) {
             alert('Enter units to send.');
             return;
         }
 
+        const endpoint = requestType === 'hospital'
+            ? `/api/hospital-requests/${requestId}/fulfill`
+            : `/api/emergency/requests/${requestId}/fulfill`;
+
         setDispatchLoading(requestId);
         try {
-            await api.put(`/api/emergency/requests/${requestId}/fulfill`, { units });
-            fetchRequests();
+            await api.put(endpoint, { units });
+            if (requestType === 'hospital') {
+                fetchHospitalRequests();
+            } else {
+                fetchEmergencyRequests();
+            }
             fetchInventory();
         } catch (err) {
             console.error(err);
@@ -106,26 +139,26 @@ const InventoryDashboard = () => {
             .map(([bloodType, units]) => ({ bloodType, units }));
     }, [inventory]);
 
-    const emergencyActive = requests.filter(
+    const emergencyActive = emergencyRequests.filter(
         r => (r.urgency || '').toUpperCase() === 'CRITICAL' && (r.status || '').toUpperCase() !== 'FULFILLED'
     );
-    const regularActive = requests.filter(
-        r => (r.urgency || '').toUpperCase() !== 'CRITICAL' && (r.status || '').toUpperCase() !== 'FULFILLED'
-    );
-    const fulfilledRequests = requests.filter(r => (r.status || '').toUpperCase() === 'FULFILLED');
+    const regularActive = hospitalRequests.filter(r => (r.status || '').toUpperCase() !== 'FULFILLED');
+    const fulfilledRequests = [...hospitalRequests, ...emergencyRequests]
+        .filter(r => (r.status || '').toUpperCase() === 'FULFILLED');
 
     const canSendRegular = canDispatchHospitalRequest;
     const canSendEmergency = canDispatchEmergency;
 
-    const renderRequestCard = (req, canSend) => {
+    const renderRequestCard = (req, canSend, requestType) => {
         const remaining = Math.max(0, (req.unitsRequested || 0) - (req.unitsFulfilled || 0));
-        const isEmergency = (req.urgency || '').toUpperCase() === 'CRITICAL';
+        const priorityLabel = String(req.urgency || req.priority || 'NORMAL').toUpperCase();
+        const isEmergency = priorityLabel === 'CRITICAL';
 
         return (
             <div key={req.id} className="glass-panel" style={{ padding: '0.9rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
                     <div style={{ fontWeight: '600' }}>
-                        #{req.id} • {req.hospital} • {req.bloodType} • {(req.urgency || 'NORMAL').toUpperCase()}
+                        #{req.id} • {req.hospital} • {req.bloodType} • {priorityLabel}
                     </div>
                     <div style={{
                         fontSize: '0.75rem',
@@ -160,7 +193,7 @@ const InventoryDashboard = () => {
                         />
                         <button
                             className="btn btn-primary"
-                            onClick={() => handleSendRequest(req.id)}
+                            onClick={() => handleSendRequest(req.id, requestType)}
                             disabled={dispatchLoading === req.id}
                         >
                             {dispatchLoading === req.id ? 'Sending...' : 'Dispatch Units'}
@@ -199,7 +232,7 @@ const InventoryDashboard = () => {
                         <h1 style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>Inventory Management</h1>
                         <p style={{ color: 'var(--text-muted)' }}>Real-time blood stock monitoring</p>
                     </div>
-                    <button className="btn btn-primary" onClick={() => { fetchInventory(); fetchRequests(); }}>
+                    <button className="btn btn-primary" onClick={() => { fetchInventory(); fetchEmergencyRequests(); fetchHospitalRequests(); }}>
                         Refresh Data
                     </button>
                 </div>
@@ -235,17 +268,18 @@ const InventoryDashboard = () => {
                     <h2 style={{ fontSize: '1.1rem', marginBottom: '1rem', color: '#991B1B' }}>
                         Emergency Priority Queue
                     </h2>
-                    {requestLoadError && <div style={{ color: '#B91C1C', marginBottom: '0.75rem' }}>{requestLoadError}</div>}
+                    {emergencyLoadError && <div style={{ color: '#B91C1C', marginBottom: '0.75rem' }}>{emergencyLoadError}</div>}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                        {emergencyActive.map(req => renderRequestCard(req, canSendEmergency))}
+                        {emergencyActive.map(req => renderRequestCard(req, canSendEmergency, 'emergency'))}
                         {emergencyActive.length === 0 && <div style={{ color: 'var(--text-muted)' }}>No active emergency-priority requests.</div>}
                     </div>
                 </div>
 
                 <div className="glass-panel" style={{ padding: '1.25rem', marginBottom: '1.5rem' }}>
                     <h2 style={{ fontSize: '1.1rem', marginBottom: '1rem' }}>Normal Hospital Request Queue</h2>
+                    {hospitalLoadError && <div style={{ color: '#B91C1C', marginBottom: '0.75rem' }}>{hospitalLoadError}</div>}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                        {regularActive.map(req => renderRequestCard(req, canSendRegular))}
+                        {regularActive.map(req => renderRequestCard(req, canSendRegular, 'hospital'))}
                         {regularActive.length === 0 && <div style={{ color: 'var(--text-muted)' }}>No active normal requests.</div>}
                     </div>
                 </div>
@@ -257,7 +291,7 @@ const InventoryDashboard = () => {
                             <div key={req.id} className="glass-panel" style={{ padding: '0.9rem', background: '#F0FDF4' }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
                                     <div style={{ fontWeight: '600' }}>
-                                        #{req.id} • {req.hospital} • {req.bloodType} • {(req.urgency || 'NORMAL').toUpperCase()}
+                                        #{req.id} • {req.hospital} • {req.bloodType} • {String(req.urgency || req.priority || 'NORMAL').toUpperCase()}
                                     </div>
                                     <div style={{
                                         fontSize: '0.75rem',
