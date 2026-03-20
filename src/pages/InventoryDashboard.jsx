@@ -53,7 +53,7 @@ const InventoryDashboard = () => {
         setEmergencyLoadError('');
         api.get('/api/emergency/requests/all')
             .then(res => {
-                const data = res.data || [];
+                const data = (res.data || []).map(request => ({ ...request, requestType: 'emergency' }));
                 setEmergencyRequests(data);
                 mapRequestDefaults(data);
             })
@@ -68,7 +68,7 @@ const InventoryDashboard = () => {
         setHospitalLoadError('');
         api.get('/api/hospital-requests')
             .then(res => {
-                const data = res.data || [];
+                const data = (res.data || []).map(request => ({ ...request, requestType: 'hospital' }));
                 setHospitalRequests(data);
                 mapRequestDefaults(data);
             })
@@ -117,7 +117,11 @@ const InventoryDashboard = () => {
             fetchInventory();
         } catch (err) {
             console.error(err);
-            alert(typeof err?.response?.data === 'string' ? err.response.data : 'Failed to dispatch blood.');
+            alert(
+                typeof err?.response?.data === 'string'
+                    ? err.response.data
+                    : err?.response?.data?.message || 'Failed to dispatch blood.'
+            );
         } finally {
             setDispatchLoading(null);
         }
@@ -142,7 +146,8 @@ const InventoryDashboard = () => {
     const emergencyActive = emergencyRequests.filter(
         r => (r.urgency || '').toUpperCase() === 'CRITICAL' && (r.status || '').toUpperCase() !== 'FULFILLED'
     );
-    const regularActive = hospitalRequests.filter(r => (r.status || '').toUpperCase() !== 'FULFILLED');
+    const regularActive = [...hospitalRequests, ...emergencyRequests]
+        .filter(r => (r.urgency || '').toUpperCase() !== 'CRITICAL' && (r.status || '').toUpperCase() !== 'FULFILLED');
     const fulfilledRequests = [...hospitalRequests, ...emergencyRequests]
         .filter(r => (r.status || '').toUpperCase() === 'FULFILLED');
 
@@ -279,7 +284,7 @@ const InventoryDashboard = () => {
                     <h2 style={{ fontSize: '1.1rem', marginBottom: '1rem' }}>Normal Hospital Request Queue</h2>
                     {hospitalLoadError && <div style={{ color: '#B91C1C', marginBottom: '0.75rem' }}>{hospitalLoadError}</div>}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                        {regularActive.map(req => renderRequestCard(req, canSendRegular, 'hospital'))}
+                        {regularActive.map(req => renderRequestCard(req, canSendRegular, req.requestType || 'hospital'))}
                         {regularActive.length === 0 && <div style={{ color: 'var(--text-muted)' }}>No active normal requests.</div>}
                     </div>
                 </div>
