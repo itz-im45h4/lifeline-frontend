@@ -88,7 +88,8 @@ const Register = () => {
             await register(formData);
             navigate('/dashboard');
         } catch (error) {
-            alert('Registration failed');
+            const errorMessage = error.response?.data?.message || error.message || 'Registration failed. Please try again.';
+            alert(errorMessage);
         }
     };
 
@@ -120,7 +121,6 @@ const Register = () => {
                             <label className="input-label">User Name</label>
                             <input
                                 className="input-field"
-                                required
                                 value={formData.fullName}
                                 onChange={e => setFormData({ ...formData, fullName: e.target.value })}
                             />
@@ -183,6 +183,11 @@ const Register = () => {
                             >
                                 {provinces.map(p => <option key={p} value={p}>{p}</option>)}
                             </select>
+                            {hospitals.length === 0 && (
+                                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.35rem' }}>
+                                    No hospitals found for this district yet. You can still create the account and update the hospital later.
+                                </div>
+                            )}
                         </div>
 
                         <div className="input-group">
@@ -204,11 +209,10 @@ const Register = () => {
                             <label className="input-label">Nearest Hospital</label>
                             <select
                                 className="input-field"
-                                required
                                 value={formData.nearestHospital}
                                 onChange={e => setFormData({ ...formData, nearestHospital: e.target.value })}
                             >
-                                {hospitals.length === 0 && <option value="">No hospitals available</option>}
+                                <option value="">Select hospital (optional)</option>
                                 {hospitals.map(h => <option key={h} value={h}>{h}</option>)}
                             </select>
                         </div>
