@@ -1,0 +1,48 @@
+.inventory-page {
+    min-height: 100vh;
+    background: #f9fafb;
+    padding: 24px;
+}
+
+.inventory-card {
+    max-width: 960px;
+    margin: 0 auto;
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 20px;
+}
+
+.inventory-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.inventory-table th,
+.inventory-table td {
+    border-bottom: 1px solid #e5e7eb;
+    padding: 10px;
+    text-align: left;
+}
+
+.inventory-table button {
+    background: #2563eb;
+    color: #ffffff;
+    border: none;
+    border-radius: 6px;
+    padding: 6px 10px;
+    cursor: pointer;
+}
+
+.row-hazard {
+    background: #fee2e2;
+}
+
+.row-safe {
+    background: #dcfce7;
+}
+
+.inventory-error {
+    color: #b91c1c;
+    margin-bottom: 10px;
+}
