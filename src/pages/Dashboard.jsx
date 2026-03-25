@@ -189,7 +189,7 @@ const Dashboard = () => {
                         {!activityLoading && !activityError && recentActivity.length === 0 && (
                             <div style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>No recent activity.</div>
                         )}
-                        {!activityLoading && !activityError && recentActivity.map(item => (
+                        {!activityLoading && !activityError && recentActivity.slice(0, 10).map(item => (
                             <div key={item.id} style={{ display: 'flex', gap: '1rem', alignItems: 'center', fontSize: '0.875rem' }}>
                                 <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--text-muted)' }}></div>
                                 <span style={{ color: 'var(--text-muted)' }}>{formatTimeAgo(item.timestamp)}</span>
