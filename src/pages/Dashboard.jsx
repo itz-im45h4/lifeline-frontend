@@ -5,6 +5,8 @@ import { useAuth } from '../context/AuthContext';
 import loginBackground from '../assets/loginpage.png';
 import { Package, FlaskConical, Hospital, ShieldCheck, Stethoscope, Heart, CalendarDays, MapPin, Activity, CheckCircle2, AlertTriangle, Clock } from 'lucide-react';
 
+const ALERT_REFRESH_INTERVAL_MS = 15000;
+
 const Dashboard = () => {
     const navigate = useNavigate();
     const {
@@ -67,6 +69,67 @@ const Dashboard = () => {
                 setInventoryError(true);
                 setInventoryLoading(false);
             });
+    }, [canViewInventory]);
+
+    useEffect(() => {
+        const refreshActivity = () => {
+            api.get('/api/activity/recent')
+                .then(res => {
+                    setRecentActivity(res.data || []);
+                    setActivityError(false);
+                })
+                .catch(err => {
+                    console.error('Error refreshing recent activity', err);
+                    setActivityError(true);
+                });
+        };
+
+        const refreshLowStock = () => {
+            api.get('/api/inventory/low-stock')
+                .then(res => setLowStock(res.data || []))
+                .catch(() => setLowStock([]));
+        };
+
+        const refreshInventory = () => {
+            if (!canViewInventory) {
+                setInventory([]);
+                setInventoryError(false);
+                return;
+            }
+
+            api.get('/api/inventory')
+                .then(res => {
+                    setInventory(res.data || []);
+                    setInventoryError(false);
+                })
+                .catch(err => {
+                    console.error('Error refreshing inventory', err);
+                    setInventoryError(true);
+                });
+        };
+
+        const refreshSignals = () => {
+            refreshActivity();
+            refreshLowStock();
+            refreshInventory();
+        };
+
+        const intervalId = window.setInterval(refreshSignals, ALERT_REFRESH_INTERVAL_MS);
+        const handleFocus = () => refreshSignals();
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible') {
+                refreshSignals();
+            }
+        };
+
+        window.addEventListener('focus', handleFocus);
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+
+        return () => {
+            window.clearInterval(intervalId);
+            window.removeEventListener('focus', handleFocus);
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+        };
     }, [canViewInventory]);
 
     const formatTimeAgo = (timestamp) => {
