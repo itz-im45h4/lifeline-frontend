@@ -206,14 +206,21 @@ const InventoryDashboard = () => {
         const standardTypes = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
         const data = standardTypes.reduce((acc, type) => ({ ...acc, [type]: 0 }), {});
         
+        const expiryLimit = new Date();
+        expiryLimit.setDate(expiryLimit.getDate() - 42);
+
         inventory.forEach(item => {
             const status = String(item.status || '').toUpperCase();
             const safety = String(item.safetyFlag || '').toUpperCase();
+            const colDate = item.collectedAt ? new Date(item.collectedAt) : null;
+            
             const isUsable = safety === 'SAFE' || status === 'SAFE' || status === 'AVAILABLE';
-            if (!isUsable) return;
+            const isNotExpired = !colDate || colDate >= expiryLimit;
+
+            if (!isUsable || !isNotExpired) return;
             const type = item.bloodType || 'Unknown';
             if (data[type] !== undefined) {
-                data[type] += Number(item.quantity || 1);
+                data[type] += Number(item.quantity || 0);
             }
         });
         return Object.entries(data)

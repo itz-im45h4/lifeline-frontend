@@ -146,21 +146,6 @@ const Dashboard = () => {
         return `${diffDays} days ago`;
     };
 
-    const criticalAlerts = useMemo(() => {
-        const alerts = [];
-        inventory.forEach(item => {
-            const status = (item.status || '').toUpperCase();
-            const safety = (item.safetyFlag || '').toUpperCase();
-            const qty = typeof item.quantity === 'number' ? item.quantity : null;
-            const lowByQty = qty !== null && qty <= 2;
-            const lowByStatus = status.includes('LOW') || status.includes('CRITICAL');
-            const unsafe = safety.includes('BIO') || status.includes('DISCARD');
-            if (lowByQty || lowByStatus || unsafe) {
-                alerts.push(item);
-            }
-        });
-        return alerts;
-    }, [inventory]);
 
     const emergencyAlerts = useMemo(() => {
         return recentActivity.filter(item => {
@@ -284,13 +269,13 @@ const Dashboard = () => {
                     <h3 style={{ color: 'white', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}><AlertTriangle size={22} color="white" /> Critical Alerts</h3>
                     <div style={{ fontSize: '3rem', fontWeight: 'bold' }}>
                         {canViewInventory
-                            ? (inventoryLoading ? '...' : criticalAlerts.length)
+                            ? (inventoryLoading ? '...' : lowStock.length)
                             : emergencyAlerts.length}
                     </div>
                     <p style={{ opacity: 0.9 }}>
                         {canViewInventory && inventoryLoading && 'Checking stock levels...'}
-                        {canViewInventory && !inventoryLoading && criticalAlerts.length === 0 && 'No critical inventory alerts.'}
-                        {canViewInventory && !inventoryLoading && criticalAlerts.length > 0 && `Inventory alerts: ${criticalAlerts.length} item(s)`}
+                        {canViewInventory && !inventoryLoading && lowStock.length === 0 && 'No critical inventory alerts.'}
+                        {canViewInventory && !inventoryLoading && lowStock.length > 0 && `Critical stock for ${lowStock.length} blood type${lowStock.length !== 1 ? 's' : ''}.`}
                         {!canViewInventory && (emergencyAlerts.length > 0 ? `Emergency alerts: ${emergencyAlerts.length}` : 'No emergency alerts.')}
                         {emergencyAlerts.length > 0 && canViewInventory && ` • Emergency alerts: ${emergencyAlerts.length}`}
                     </p>
