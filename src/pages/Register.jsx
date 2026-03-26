@@ -9,10 +9,12 @@ import {
     getDistrictsByProvince
 } from '../constants/locationData';
 import loginBackground from '../assets/loginpage.png';
+import { useToast } from '../context/ToastContext';
 
 const Register = () => {
     const navigate = useNavigate();
     const { register } = useAuth();
+    const { showToast } = useToast();
     const defaults = getDefaultLocationSelection();
     const [step, setStep] = useState(1);
     const [formData, setFormData] = useState({
@@ -38,7 +40,8 @@ const Register = () => {
         api.get('/api/hospitals', {
             params: {
                 province: formData.province,
-                district: formData.district
+                district: formData.district,
+                _t: Date.now() // Prevent browser caching since there's no auth header
             }
         })
             .then(res => {
@@ -89,24 +92,24 @@ const Register = () => {
             navigate('/dashboard');
         } catch (error) {
             const errorMessage = error.response?.data?.message || error.message || 'Registration failed. Please try again.';
-            alert(errorMessage);
+            showToast({ type: 'error', title: 'Registration failed', message: errorMessage });
         }
     };
 
     return (
-        <div className="flex-center" style={{
-            minHeight: '100vh',
-            width: '100%',
-            padding: '2rem 0',
-            backgroundImage: `linear-gradient(rgba(240, 244, 255, 0.72), rgba(255, 228, 230, 0.72)), url(${loginBackground})`,
-            backgroundSize: 'cover',
-            backgroundPosition: 'center',
-            backgroundRepeat: 'no-repeat',
-            backgroundColor: '#F0F4FF'
-        }}>
-            <div className="glass-panel animate-fade-in" style={{ width: '100%', maxWidth: '600px', padding: '2.5rem' }}>
-                <header style={{ textAlign: 'center', marginBottom: '2rem' }}>
-                    <h1 style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>Join LifeLine</h1>
+        <div
+            className="auth-shell"
+            style={{
+                backgroundImage: `linear-gradient(rgba(240, 244, 255, 0.72), rgba(255, 228, 230, 0.72)), url(${loginBackground})`,
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
+                backgroundRepeat: 'no-repeat',
+                backgroundColor: '#F0F4FF'
+            }}
+        >
+            <div className="glass-panel animate-fade-in auth-card auth-card-wide">
+                <header className="auth-header">
+                    <h1 className="auth-title">Join LifeLine</h1>
                     <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem', marginTop: '1rem' }}>
                         <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: step >= 1 ? 'var(--primary)' : '#E2E8F0' }}></div>
                         <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: step >= 2 ? 'var(--primary)' : '#E2E8F0' }}></div>
@@ -221,8 +224,8 @@ const Register = () => {
                     </form>
                 )}
 
-                <div style={{ marginTop: '2rem', textAlign: 'center', fontSize: '0.875rem' }}>
-                    Already have an account? <Link to="/" style={{ color: 'var(--primary)', fontWeight: '600', textDecoration: 'none' }}>Login</Link>
+                <div className="auth-footer">
+                    Already have an account? <Link to="/" className="auth-link">Login</Link>
                 </div>
             </div>
         </div>

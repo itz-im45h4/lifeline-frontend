@@ -2,11 +2,14 @@ import React, { useState, useEffect } from 'react';
 import api from '../services/api';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { AlertCircle, AlertTriangle, Droplet } from 'lucide-react';
 import donorBackground from '../assets/donorportal.jpg';
+import { useToast } from '../context/ToastContext';
 
 const DonorDashboard = () => {
     const navigate = useNavigate();
     const { user } = useAuth();
+    const { showToast } = useToast();
     const donorId = user?.id || user?.userId;
     const [donorData, setDonorData] = useState(null);
     const [appointments, setAppointments] = useState([]);
@@ -38,7 +41,11 @@ const DonorDashboard = () => {
             .then(res => {
                 setDonorData(res.data);
                 if (res.data?.safetyStatus === 'POSITIVE') {
-                    alert(`URGENT NOTICE: Your recent blood test found a positive result for the following reason(s): ${res.data.positiveReason}. \n\nYou are permanently blocked from booking more appointments. Please contact a doctor immediately for medical advice and medicine.`);
+                    showToast({
+                        type: 'error',
+                        title: 'Urgent medical notice',
+                        message: `Positive test result recorded: ${res.data.positiveReason}. Please contact a doctor immediately.`
+                    });
                 }
             })
             .catch(err => console.error("Error fetching donor data", err));
@@ -82,31 +89,24 @@ const DonorDashboard = () => {
     const totalVolume = completedCount * 0.5;
 
     return (
-        <div style={{ minHeight: '100vh', width: '100%', position: 'relative', backgroundColor: '#F0F4FF' }}>
+        <div className="app-shell">
             <div
                 aria-hidden="true"
+                className="app-backdrop"
                 style={{
-                    position: 'fixed',
-                    inset: 0,
                     backgroundImage: `linear-gradient(rgba(240, 244, 255, 0.72), rgba(255, 228, 230, 0.72)), url(${donorBackground})`,
-                    backgroundSize: 'cover',
-                    backgroundPosition: 'center',
-                    backgroundRepeat: 'no-repeat',
-                    pointerEvents: 'none',
-                    zIndex: 0
                 }}
             />
-        <div className="container" style={{ position: 'relative', zIndex: 1, padding: '2rem 1rem' }}>
-            <header style={{ marginBottom: '3rem' }}>
-                <button
-                    className="btn"
-                    onClick={() => navigate(-1)}
-                    style={{ marginBottom: '0.75rem', border: '1px solid var(--primary)', color: 'var(--primary)' }}
-                >
-                    Back
-                </button>
-                <h1 style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>Donor Portal</h1>
-                <p style={{ color: 'var(--text-muted)' }}>Welcome back :)</p>
+        <div className="container app-page">
+            <header className="page-header" style={{ marginBottom: '3rem' }}>
+                <div>
+                    <button className="btn btn-secondary" onClick={() => navigate(-1)} style={{ marginBottom: '0.9rem' }}>
+                        Back
+                    </button>
+                    <div className="page-kicker">Donor</div>
+                    <h1 className="page-title">Donor Portal</h1>
+                    <p className="page-subtitle">Track your impact, eligibility, and upcoming opportunities.</p>
+                </div>
                 {donorData?.safetyStatus === 'POSITIVE' && (
                     <div style={{ 
                         marginTop: '1.5rem', 
@@ -116,7 +116,9 @@ const DonorDashboard = () => {
                         borderRadius: 'var(--radius-md)',
                         color: '#991B1B'
                     }}>
-                        <h3 style={{ marginBottom: '0.5rem' }}>⚠️ Safety Status: POSITIVE</h3>
+                        <h3 style={{ marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <AlertTriangle size={24} /> Safety Status: POSITIVE
+                        </h3>
                         <p><strong>Reason:</strong> {donorData.positiveReason}</p>
                         <p style={{ fontSize: '0.875rem', marginTop: '0.5rem' }}>
                             You are permanently blocked from further donations. Please consult a medical professional.
@@ -130,7 +132,7 @@ const DonorDashboard = () => {
                 {/* Eligibility Status Card */}
                 <div className="glass-panel" style={{ padding: '2rem', display: 'flex', flexDirection: 'column', height: '100%' }}>
                     <h2 style={{ fontSize: '1.25rem', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <span>🩸</span> Eligibility Check
+                        <Droplet size={20} color="#BE123C" /> Eligibility Check
                     </h2>
 
                     <div style={{
@@ -174,9 +176,12 @@ const DonorDashboard = () => {
                                 : (!eligibility.eligible ? 'Booking Restricted' : 'Book Appointment Now')}
                         </button>
                         {!eligibility.eligible && eligibility.reason && (
-                            <p style={{ fontSize: '0.75rem', color: '#991B1B', marginTop: '0.5rem', fontWeight: '500' }}>
-                                ⚠️ {formatEligibilityMessage(eligibility)}
-                                {eligibility.nextEligibleDate && ` (Available from ${new Date(eligibility.nextEligibleDate).toLocaleDateString()})`}
+                            <p style={{ fontSize: '0.75rem', color: '#991B1B', marginTop: '0.5rem', fontWeight: '500', display: 'flex', alignItems: 'center', gap: '0.3rem', justifyContent: 'center' }}>
+                                <AlertCircle size={14} />
+                                <span>
+                                    {formatEligibilityMessage(eligibility)}
+                                    {eligibility.nextEligibleDate && ` (Available from ${new Date(eligibility.nextEligibleDate).toLocaleDateString()})`}
+                                </span>
                             </p>
                         )}
                     </div>

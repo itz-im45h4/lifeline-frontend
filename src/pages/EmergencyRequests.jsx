@@ -3,6 +3,7 @@ import api from '../services/api';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import emergencyBackground from '../assets/emergency.jpg';
+import { Ambulance, Hospital, Megaphone } from 'lucide-react';
 import {
     PROVINCES,
     getDefaultLocationSelection,
@@ -47,7 +48,7 @@ const EmergencyRequests = () => {
                 setHospitals(data);
                 setRequest(prev => ({
                     ...prev,
-                    hospital: prev.hospital || data[0]?.name || ''
+                    hospital: data[0]?.name || ''
                 }));
             })
             .catch(err => {
@@ -85,23 +86,19 @@ const EmergencyRequests = () => {
     if (status === 'success') {
         const broadcastTriggered = Boolean(responseMeta?.broadcastTriggered);
         return (
-            <div style={{ minHeight: '100vh', width: '100%', position: 'relative', backgroundColor: '#F0F4FF' }}>
+            <div className="app-shell">
                 <div
                     aria-hidden="true"
+                    className="app-backdrop"
                     style={{
-                        position: 'fixed',
-                        inset: 0,
                         backgroundImage: `linear-gradient(rgba(240, 244, 255, 0.72), rgba(255, 228, 230, 0.72)), url(${emergencyBackground})`,
-                        backgroundSize: 'cover',
-                        backgroundPosition: 'center',
-                        backgroundRepeat: 'no-repeat',
-                        pointerEvents: 'none',
-                        zIndex: 0
                     }}
                 />
-                <div className="container flex-center" style={{ minHeight: '80vh', position: 'relative', zIndex: 1 }}>
-                    <div className="glass-panel" style={{ padding: '3rem', textAlign: 'center', maxWidth: '560px' }}>
-                        <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>{broadcastTriggered ? '🚑' : '🏥'}</div>
+                <div className="container flex-center app-page-centered">
+                    <div className="glass-panel section-card" style={{ padding: '3rem', textAlign: 'center', maxWidth: '560px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1.5rem' }}>
+                            {broadcastTriggered ? <Ambulance size={72} color="#BE123C" /> : <Hospital size={72} color="#BE123C" />}
+                        </div>
                         <h2 style={{ color: 'var(--primary)', marginBottom: '1rem' }}>
                             {broadcastTriggered ? 'Emergency Broadcast Sent!' : 'Request Submitted'}
                         </h2>
@@ -118,35 +115,28 @@ const EmergencyRequests = () => {
     }
 
     return (
-        <div style={{ minHeight: '100vh', width: '100%', position: 'relative', backgroundColor: '#F0F4FF' }}>
+        <div className="app-shell">
             <div
                 aria-hidden="true"
+                className="app-backdrop"
                 style={{
-                    position: 'fixed',
-                    inset: 0,
                     backgroundImage: `linear-gradient(rgba(240, 244, 255, 0.72), rgba(255, 228, 230, 0.72)), url(${emergencyBackground})`,
-                    backgroundSize: 'cover',
-                    backgroundPosition: 'center',
-                    backgroundRepeat: 'no-repeat',
-                    pointerEvents: 'none',
-                    zIndex: 0
                 }}
             />
-            <div className="container flex-center" style={{ minHeight: '80vh', position: 'relative', zIndex: 1 }}>
-                <div className="glass-panel animate-fade-in" style={{ padding: '2.5rem', width: '100%', maxWidth: '640px', borderLeft: '4px solid var(--primary)' }}>
-                    <button
-                        className="btn"
-                        onClick={() => navigate(-1)}
-                        style={{ marginBottom: '1rem', border: '1px solid var(--primary)', color: 'var(--primary)' }}
-                    >
+            <div className="container flex-center app-page-centered">
+                <div className="glass-panel animate-fade-in section-card" style={{ padding: '2.5rem', width: '100%', maxWidth: '640px', borderLeft: '4px solid var(--primary)' }}>
+                    <button className="btn btn-secondary" onClick={() => navigate(-1)} style={{ marginBottom: '1rem' }}>
                         Back
                     </button>
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '2rem' }}>
-                        <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: '#FECDD3', color: '#BE123C', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem' }}>📢</div>
+                        <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: '#FECDD3', color: '#BE123C', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <Megaphone size={24} />
+                        </div>
                         <div>
-                            <h2 style={{ fontSize: '1.5rem', color: '#BE123C' }}>Request</h2>
-                            <p style={{ color: 'var(--text-muted)' }}>Emergency and normal requests are now handled in one module</p>
+                            <div className="page-kicker" style={{ marginBottom: '0.55rem', color: '#BE123C' }}>Hospital Requests</div>
+                            <h2 style={{ fontSize: '1.7rem', color: '#BE123C' }}>Request Blood Units</h2>
+                            <p style={{ color: 'var(--text-muted)' }}>Emergency and normal requests are handled in one operational flow.</p>
                         </div>
                     </div>
 
@@ -257,12 +247,7 @@ const EmergencyRequests = () => {
                             </p>
                         </div>
 
-                        <button
-                            type="submit"
-                            className="btn"
-                            style={{ width: '100%', background: '#BE123C', color: 'white', fontWeight: 'bold', padding: '1rem' }}
-                            disabled={status === 'sending'}
-                        >
+                        <button type="submit" className="btn btn-primary" style={{ width: '100%', padding: '1rem' }} disabled={status === 'sending'}>
                             {status === 'sending'
                                 ? 'Submitting...'
                                 : (isCriticalUrgency ? 'BROADCAST + SUBMIT' : 'SUBMIT REQUEST')}

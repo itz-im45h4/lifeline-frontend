@@ -3,18 +3,25 @@ import api from '../services/api';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import hospitalsBackground from '../assets/hospitals.jpg';
+import { Edit2, Trash2 } from 'lucide-react';
 import { PROVINCES, getDefaultLocationSelection, getDistrictsByProvince } from '../constants/locationData';
+import { useToast } from '../context/ToastContext';
+import { useConfirmDialog } from '../context/ConfirmDialogContext';
+import FeedbackState from '../components/FeedbackState';
 
 const PAGE_SIZE = 10;
 
 const Hospitals = () => {
     const navigate = useNavigate();
     const { isAdmin } = useAuth();
+    const { showToast } = useToast();
+    const { confirm } = useConfirmDialog();
     const defaults = getDefaultLocationSelection();
 
     const [hospitals, setHospitals] = useState([]);
     const [loading, setLoading]     = useState(true);
     const [showModal, setShowModal] = useState(false);
+    const [editingHospitalId, setEditingHospitalId] = useState(null);
     const [newHospital, setNewHospital] = useState({
         name: '', province: defaults.province, district: defaults.district, address: '', contactNumber: ''
     });
@@ -33,28 +40,58 @@ const Hospitals = () => {
 
     useEffect(() => { fetchHospitals(); }, []);
 
-    const handleCreateHospital = async (e) => {
+    const handleSubmitHospital = async (e) => {
         e.preventDefault();
         try {
-            await api.post('/api/hospitals', newHospital);
-            setShowModal(false);
-            setNewHospital({ name: '', province: defaults.province, district: defaults.district, address: '', contactNumber: '' });
+            if (editingHospitalId) {
+                await api.put(`/api/hospitals/${editingHospitalId}`, newHospital);
+                showToast({ type: 'success', title: 'Hospital updated', message: 'The hospital record was updated successfully.' });
+            } else {
+                await api.post('/api/hospitals', newHospital);
+                showToast({ type: 'success', title: 'Hospital added', message: 'The new hospital is now available in the system.' });
+            }
+            closeModal();
             fetchHospitals();
-            alert('Hospital added successfully.');
         } catch (error) {
             console.error(error);
-            alert(error?.response?.data?.message || 'Failed to create hospital.');
+            showToast({ type: 'error', title: 'Save failed', message: error?.response?.data?.message || 'Failed to save hospital.' });
         }
     };
 
+    const closeModal = () => {
+        setShowModal(false);
+        setEditingHospitalId(null);
+        setNewHospital({ name: '', province: defaults.province, district: defaults.district, address: '', contactNumber: '' });
+    };
+
+    const openEditModal = (hospital) => {
+        setEditingHospitalId(hospital.id);
+        const province = hospital.province || defaults.province;
+        const district = hospital.district || defaults.district;
+        setNewHospital({
+            name: hospital.name || '',
+            province,
+            district,
+            address: hospital.address || '',
+            contactNumber: hospital.contactNumber || ''
+        });
+        setShowModal(true);
+    };
+
     const handleDeleteHospital = async (hospitalId) => {
-        if (!window.confirm('Delete this hospital?')) return;
+        const confirmed = await confirm({
+            title: 'Delete hospital?',
+            message: 'This hospital will be removed from requests and booking selections.',
+            confirmLabel: 'Delete'
+        });
+        if (!confirmed) return;
         try {
             await api.delete(`/api/hospitals/${hospitalId}`);
             fetchHospitals();
+            showToast({ type: 'success', title: 'Hospital deleted', message: 'The hospital was removed successfully.' });
         } catch (error) {
             console.error(error);
-            alert('Failed to delete hospital.');
+            showToast({ type: 'error', title: 'Delete failed', message: 'Failed to delete hospital.' });
         }
     };
 
@@ -90,7 +127,7 @@ const Hospitals = () => {
                     </div>
                     <div style={{ display: 'flex', gap: '1rem' }}>
                         {isAdmin && (
-                            <button className="btn btn-primary" onClick={() => setShowModal(true)}>+ Add New Hospital</button>
+                            <button className="btn btn-primary" onClick={() => { setEditingHospitalId(null); setNewHospital({ name: '', province: defaults.province, district: defaults.district, address: '', contactNumber: '' }); setShowModal(true); }}>+ Add New Hospital</button>
                         )}
                         <button className="btn" style={{ border: '1px solid #E2E8F0' }} onClick={() => navigate(-1)}>← Back</button>
                     </div>
@@ -114,8 +151,8 @@ const Hospitals = () => {
                         {filteredHospitals.length} hospital{filteredHospitals.length !== 1 ? 's' : ''} found
                     </div>
 
-                    {loading && <div style={{ color: 'var(--text-muted)' }}>Loading hospitals...</div>}
-                    {!loading && filteredHospitals.length === 0 && <div style={{ color: 'var(--text-muted)' }}>No hospitals found.</div>}
+                    {loading && <FeedbackState variant="loading" title="Loading hospitals" message="Fetching hospital records and locations." compact />}
+                    {!loading && filteredHospitals.length === 0 && <FeedbackState variant="empty" title="No hospitals found" message="Try a broader search or add a new hospital." compact />}
 
                     {!loading && filteredHospitals.length > 0 && (
                         <div style={{ display: 'grid', gap: '0.75rem' }}>
@@ -135,13 +172,26 @@ const Hospitals = () => {
                                             )}
                                         </div>
                                         {isAdmin && (
-                                            <button
-                                                className="btn"
-                                                style={{ border: '1px solid #FCA5A5', color: '#B91C1C' }}
-                                                onClick={() => handleDeleteHospital(hospital.id)}
-                                            >
-                                                Delete
-                                            </button>
+                                            <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                                <button
+                                                    title="Edit Hospital"
+                                                    style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#2563EB', padding: '0.4rem', borderRadius: '8px', transition: 'background 0.2s' }}
+                                                    onMouseEnter={e => e.currentTarget.style.background = 'rgba(37,99,235,0.1)'}
+                                                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                                                    onClick={() => openEditModal(hospital)}
+                                                >
+                                                    <Edit2 size={18} />
+                                                </button>
+                                                <button
+                                                    title="Delete Hospital"
+                                                    style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#DC2626', padding: '0.4rem', borderRadius: '8px', transition: 'background 0.2s' }}
+                                                    onMouseEnter={e => e.currentTarget.style.background = 'rgba(220,38,38,0.1)'}
+                                                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                                                    onClick={() => handleDeleteHospital(hospital.id)}
+                                                >
+                                                    <Trash2 size={18} />
+                                                </button>
+                                            </div>
                                         )}
                                     </div>
                                 </div>
@@ -173,8 +223,8 @@ const Hospitals = () => {
             {showModal && (
                 <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
                     <div className="glass-panel" style={{ background: 'white', padding: '2rem', width: '100%', maxWidth: '560px' }}>
-                        <h2 style={{ marginBottom: '1.5rem' }}>Add New Hospital</h2>
-                        <form onSubmit={handleCreateHospital}>
+                        <h2 style={{ marginBottom: '1.5rem' }}>{editingHospitalId ? 'Edit Hospital' : 'Add New Hospital'}</h2>
+                        <form onSubmit={handleSubmitHospital}>
                             <div className="input-group">
                                 <label className="input-label">Hospital Name</label>
                                 <input className="input-field" required value={newHospital.name} onChange={e => setNewHospital({ ...newHospital, name: e.target.value })} />
@@ -203,9 +253,9 @@ const Hospitals = () => {
                                 <label className="input-label">Contact Number</label>
                                 <input className="input-field" value={newHospital.contactNumber} onChange={e => setNewHospital({ ...newHospital, contactNumber: e.target.value })} />
                             </div>
-                            <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
-                                <button type="button" className="btn" onClick={() => setShowModal(false)}>Cancel</button>
-                                <button type="submit" className="btn btn-primary">Add Hospital</button>
+                            <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', marginTop: '1.5rem' }}>
+                                <button type="button" className="btn" onClick={closeModal}>Cancel</button>
+                                <button type="submit" className="btn btn-primary">{editingHospitalId ? 'Save Changes' : 'Add Hospital'}</button>
                             </div>
                         </form>
                     </div>

@@ -36,18 +36,15 @@ const Login = () => {
     };
 
     return (
-        <div style={{
-            minHeight: '100vh',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            backgroundImage: `linear-gradient(rgba(240, 244, 255, 0.72), rgba(255, 228, 230, 0.72)), url(${loginBackground})`,
-            backgroundSize: 'cover',
-            backgroundPosition: 'center',
-            backgroundRepeat: 'no-repeat',
-            position: 'relative',
-            overflow: 'hidden'
-        }}>
+        <div
+            className="auth-shell"
+            style={{
+                backgroundImage: `linear-gradient(rgba(240, 244, 255, 0.72), rgba(255, 228, 230, 0.72)), url(${loginBackground})`,
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
+                backgroundRepeat: 'no-repeat'
+            }}
+        >
             {/* Background Decorations */}
             <div style={{
                 position: 'absolute',
@@ -70,16 +67,10 @@ const Login = () => {
                 filter: 'blur(60px)'
             }} />
 
-            <div className="glass-panel animate-fade-in" style={{
-                width: '100%',
-                maxWidth: '420px',
-                padding: '2.5rem',
-                borderRadius: 'var(--radius-lg)',
-                margin: '1rem'
-            }}>
-                <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-                    <h1 style={{ fontSize: '1.875rem', marginBottom: '0.5rem' }}>Welcome Back</h1>
-                    <p style={{ color: 'var(--text-muted)' }}>Sign in to access LifeLine</p>
+            <div className="glass-panel animate-fade-in auth-card">
+                <div className="auth-header">
+                    <h1 className="auth-title">Welcome Back</h1>
+                    <p className="auth-subtitle">Sign in to access LifeLine</p>
                 </div>
 
                 {error && (
@@ -135,8 +126,8 @@ const Login = () => {
                     </button>
                 </form>
 
-                <div style={{ marginTop: '2rem', textAlign: 'center', fontSize: '0.875rem', color: 'var(--text-muted)' }}>
-                    Don't have an account? <Link to="/register" style={{ color: 'var(--primary)', fontWeight: '600', textDecoration: 'none' }}>Register Now</Link>
+                <div className="auth-footer">
+                    Don't have an account? <Link to="/register" className="auth-link">Register Now</Link>
                 </div>
             </div>
         </div>

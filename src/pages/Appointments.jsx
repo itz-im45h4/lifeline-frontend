@@ -3,6 +3,9 @@ import api from '../services/api';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import scheduleBackground from '../assets/shedule.jpg';
+import { useToast } from '../context/ToastContext';
+import FeedbackState from '../components/FeedbackState';
+import StatusBadge from '../components/StatusBadge';
 
 const PAGE_SIZE = 10;
 
@@ -24,6 +27,7 @@ const formatAppointmentDate = (value) => {
 const Appointments = () => {
     const navigate = useNavigate();
     const { user, canApproveAppointments } = useAuth();
+    const { showToast } = useToast();
     const currentUserId = user?.id || user?.userId;
 
     const [appointments, setAppointments] = useState([]);
@@ -49,7 +53,7 @@ const Appointments = () => {
     const handleCancel = async (id) => {
         setUpdatingId(id);
         try { await api.put(`/api/appointments/${id}/cancel`); fetchAppointments(); }
-        catch (err) { console.error(err); alert('Unable to cancel appointment.'); }
+        catch (err) { console.error(err); showToast({ type: 'error', title: 'Cancel failed', message: 'Unable to cancel appointment.' }); }
         finally { setUpdatingId(null); }
     };
 
@@ -58,10 +62,10 @@ const Appointments = () => {
         try {
             await api.put(`/api/appointments/${id}/status`, { status, actingUserId: currentUserId });
             if (status === 'Completed' || status === 'Approved') {
-                alert('Status updated. If donation is done, blood bag is now available in Lab Dashboard queue.');
+                showToast({ type: 'success', title: 'Status updated', message: 'If donation is done, the blood bag is now available in the Lab Dashboard queue.' });
             }
             fetchAppointments();
-        } catch (err) { console.error(err); alert('Unable to update status.'); }
+        } catch (err) { console.error(err); showToast({ type: 'error', title: 'Update failed', message: 'Unable to update status.' }); }
         finally { setUpdatingId(null); }
     };
 
@@ -99,33 +103,32 @@ const Appointments = () => {
     const setPage = (statusKey, p) => setGroupPages(prev => ({ ...prev, [statusKey]: p }));
 
     return (
-        <div style={{ minHeight: '100vh', width: '100%', position: 'relative', backgroundColor: '#F0F4FF' }}>
+        <div className="app-shell">
             <div
                 aria-hidden="true"
+                className="app-backdrop"
                 style={{
-                    position: 'fixed', inset: 0,
                     backgroundImage: `linear-gradient(rgba(240, 244, 255, 0.72), rgba(255, 228, 230, 0.72)), url(${scheduleBackground})`,
-                    backgroundSize: 'cover', backgroundPosition: 'center',
-                    backgroundRepeat: 'no-repeat', pointerEvents: 'none', zIndex: 0
                 }}
             />
-            <div className="container" style={{ position: 'relative', zIndex: 1, padding: '2rem 1rem' }}>
-                <header style={{ marginBottom: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div className="container app-page">
+                <header className="page-header">
                     <div>
-                        <h1 style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>Scheduled Bookings</h1>
-                        <p style={{ color: 'var(--text-muted)' }}>
+                        <div className="page-kicker">Scheduling</div>
+                        <h1 className="page-title">Scheduled Bookings</h1>
+                        <p className="page-subtitle">
                             {canApproveAppointments ? 'Organized by request, approved, finished, and cancelled' : 'Manage your bookings'}
                         </p>
                     </div>
-                    <div style={{ display: 'flex', gap: '1rem' }}>
+                    <div className="page-actions">
                         {!canApproveAppointments && (
                             <button className="btn btn-primary" onClick={() => navigate('/appointments/book')}>Book New</button>
                         )}
-                        <button className="btn" style={{ border: '1px solid #E2E8F0' }} onClick={() => navigate(-1)}>← Back</button>
+                        <button className="btn btn-secondary" onClick={() => navigate(-1)}>← Back</button>
                     </div>
                 </header>
 
-                <div className="glass-panel" style={{ padding: '1.5rem' }}>
+                <div className="glass-panel section-card">
                     {/* Search bar */}
                     <input
                         type="text"
@@ -140,9 +143,9 @@ const Appointments = () => {
                         }}
                     />
 
-                    {loading  && <div style={{ color: 'var(--text-muted)' }}>Loading appointments...</div>}
-                    {!loading && error && <div style={{ color: 'var(--text-muted)' }}>Unable to load appointments.</div>}
-                    {!loading && !error && appointments.length === 0 && <div style={{ color: 'var(--text-muted)' }}>No appointments found.</div>}
+                    {loading && <FeedbackState variant="loading" title="Loading appointments" message="Fetching the latest booking records." compact />}
+                    {!loading && error && <FeedbackState variant="error" title="Unable to load appointments" message="Please try refreshing this page." compact />}
+                    {!loading && !error && appointments.length === 0 && <FeedbackState variant="empty" title="No appointments found" message="Bookings will appear here once they are created." compact />}
 
                     {!loading && !error && appointments.length > 0 && (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
@@ -161,7 +164,7 @@ const Appointments = () => {
                                             {visible.map(appt => {
                                                 const style = statusStyles[appt.status] || { background: '#E2E8F0', color: '#334155' };
                                                 return (
-                                                    <div key={appt.id} className="glass-panel" style={{ padding: '1rem' }}>
+                                                    <div key={appt.id} className="glass-panel section-card">
                                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem' }}>
                                                             <div>
                                                                 <div style={{ fontWeight: '600' }}>
@@ -174,9 +177,7 @@ const Appointments = () => {
                                                                 )}
                                                                 <div style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>{appt.formattedDate}</div>
                                                             </div>
-                                                            <div style={{ padding: '0.25rem 0.75rem', borderRadius: '9999px', fontSize: '0.75rem', fontWeight: '700', ...style }}>
-                                                                {appt.status.toUpperCase()}
-                                                            </div>
+                                                            <StatusBadge status={appt.status} style={style}>{appt.status.toUpperCase()}</StatusBadge>
                                                         </div>
 
                                                         <div style={{ marginTop: '0.75rem', display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>

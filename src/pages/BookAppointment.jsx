@@ -2,7 +2,10 @@ import React, { useEffect, useMemo, useState } from 'react';
 import api from '../services/api';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { XCircle } from 'lucide-react';
 import DonorEligibility from './DonorEligibility';
+import { useToast } from '../context/ToastContext';
+import FeedbackState from '../components/FeedbackState';
 import {
     PROVINCES,
     getDistrictsByProvince,
@@ -12,6 +15,7 @@ import {
 const BookAppointment = () => {
     const navigate = useNavigate();
     const { user } = useAuth();
+    const { showToast } = useToast();
     const currentUserId = user?.id || user?.userId;
     const defaults = getDefaultLocationSelection();
     const [step, setStep] = useState(1);
@@ -162,27 +166,27 @@ const BookAppointment = () => {
 
         try {
             if (!donorId) {
-                alert('Unable to identify your account. Please sign in again.');
+                showToast({ type: 'error', title: 'Account required', message: 'Unable to identify your account. Please sign in again.' });
                 setSubmitting(false);
                 isSubmittingRef.current = false;
                 return;
             }
 
             if (!questionnaireEligible) {
-                alert('Please complete eligibility questions before booking.');
+                showToast({ type: 'error', title: 'Eligibility required', message: 'Please complete eligibility questions before booking.' });
                 setSubmitting(false);
                 isSubmittingRef.current = false;
                 return;
             }
             if (!questionnaireAnswers) {
-                alert('Questionnaire answers are missing. Please complete eligibility questions again.');
+                showToast({ type: 'error', title: 'Answers missing', message: 'Please complete eligibility questions again.' });
                 setSubmitting(false);
                 isSubmittingRef.current = false;
                 return;
             }
 
             if (!selectedCenter) {
-                alert('Please select a donation center.');
+                showToast({ type: 'error', title: 'Center required', message: 'Please select a donation center.' });
                 setSubmitting(false);
                 isSubmittingRef.current = false;
                 return;
@@ -190,19 +194,19 @@ const BookAppointment = () => {
 
             if (selectedCenter.type === 'CAMP') {
                 if (formData.date !== selectedCenter.date) {
-                    alert(`This camp only accepts bookings on ${selectedCenter.date}.`);
+                    showToast({ type: 'error', title: 'Invalid camp date', message: `This camp only accepts bookings on ${selectedCenter.date}.` });
                     setSubmitting(false);
                     isSubmittingRef.current = false;
                     return;
                 }
                 if (selectedCenter.startTime && formData.time < selectedCenter.startTime) {
-                    alert(`Booking must be after camp start time ${selectedCenter.startTime}.`);
+                    showToast({ type: 'error', title: 'Invalid time', message: `Booking must be after camp start time ${selectedCenter.startTime}.` });
                     setSubmitting(false);
                     isSubmittingRef.current = false;
                     return;
                 }
                 if (selectedCenter.endTime && formData.time > selectedCenter.endTime) {
-                    alert(`Booking must be before camp end time ${selectedCenter.endTime}.`);
+                    showToast({ type: 'error', title: 'Invalid time', message: `Booking must be before camp end time ${selectedCenter.endTime}.` });
                     setSubmitting(false);
                     isSubmittingRef.current = false;
                     return;
@@ -214,7 +218,7 @@ const BookAppointment = () => {
             const eligibilityResponse = await api.get(`/api/donors/${donorId}/eligibility`);
             const isEligible = Boolean(eligibilityResponse.data?.eligible);
             if (!isEligible) {
-                alert(formatEligibilityMessage(eligibilityResponse.data));
+                showToast({ type: 'error', title: 'Booking restricted', message: formatEligibilityMessage(eligibilityResponse.data) });
                 setSubmitting(false);
                 isSubmittingRef.current = false;
                 return;
@@ -235,12 +239,12 @@ const BookAppointment = () => {
                 recentTravel: questionnaireAnswers.recentTravel
             });
 
-            alert('Appointment Scheduled Successfully!');
-            navigate('/donors');
+            showToast({ type: 'success', title: 'Appointment scheduled', message: 'Your donation appointment was scheduled successfully.' });
+            navigate('/donors', { replace: true });
         } catch (error) {
             console.error(error);
             const msg = error?.response?.data;
-            alert(typeof msg === 'string' ? msg : 'Failed to book appointment. Please try another time.');
+            showToast({ type: 'error', title: 'Booking failed', message: typeof msg === 'string' ? msg : 'Failed to book appointment. Please try another time.' });
         } finally {
             setSubmitting(false);
             isSubmittingRef.current = false;
@@ -250,7 +254,7 @@ const BookAppointment = () => {
     if (eligibilityInfo.checking) {
         return (
             <div className="container flex-center" style={{ minHeight: '80vh' }}>
-                <div style={{ color: 'var(--text-muted)' }}>Verifying your eligibility...</div>
+                <FeedbackState variant="loading" title="Verifying eligibility" message="Checking your donor record and recent donation history." />
             </div>
         );
     }
@@ -259,7 +263,9 @@ const BookAppointment = () => {
         return (
             <div className="container flex-center" style={{ minHeight: '80vh' }}>
                 <div className="glass-panel animate-fade-in" style={{ padding: '3rem', textAlign: 'center', maxWidth: '500px', borderTop: '4px solid #EF4444' }}>
-                    <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>🛑</div>
+                    <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1.5rem' }}>
+                        <XCircle size={64} color="#B91C1C" />
+                    </div>
                     <h2 style={{ color: '#991B1B', marginBottom: '1rem' }}>Booking Restricted</h2>
                     <p style={{ color: 'var(--text-main)', marginBottom: '1.5rem', fontWeight: '500' }}>
                         {formatEligibilityMessage(eligibilityInfo)}
@@ -272,7 +278,7 @@ const BookAppointment = () => {
                             </p>
                         </div>
                     )}
-                    <button className="btn btn-primary" onClick={() => navigate('/donors')}>Return to Dashboard</button>
+                    <button className="btn btn-primary" onClick={() => navigate('/dashboard')}>Return to Main Menu</button>
                     <p style={{ marginTop: '1.5rem', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
                         If you believe this is an error, please contact the blood bank support.
                     </p>

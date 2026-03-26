@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import api from '../services/api';
+import { useToast } from '../context/ToastContext';
 
 const LabTestModal = ({ bagId, onClose, onSubmit }) => {
+    const { showToast } = useToast();
     const [hiv, setHiv] = useState(false);
     const [hep, setHep] = useState(false);
     const [malaria, setMalaria] = useState(false);
@@ -16,12 +18,12 @@ const LabTestModal = ({ bagId, onClose, onSubmit }) => {
             reason: (hiv || hep || malaria) ? reason : ""
         })
             .then(() => {
-                alert('Lab Results Updated!');
+                showToast({ type: 'success', title: 'Lab results updated', message: `Blood bag #${bagId} was updated successfully.` });
                 onSubmit();
             })
             .catch(err => {
                 console.error("Error updating test results", err);
-                alert("Failed to update results");
+                showToast({ type: 'error', title: 'Update failed', message: 'Failed to update results.' });
             });
     };
 

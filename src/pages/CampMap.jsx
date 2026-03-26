@@ -2,18 +2,25 @@ import React, { useState, useEffect, useMemo } from 'react';
 import api from '../services/api';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { MapPin, Calendar, Clock, Hospital } from 'lucide-react';
 import {
     PROVINCES,
     getDefaultLocationSelection,
     getDistrictsByProvince
 } from '../constants/locationData';
 import campsBackground from '../assets/camps.jpg';
+import { useToast } from '../context/ToastContext';
+import { useConfirmDialog } from '../context/ConfirmDialogContext';
+import FeedbackState from '../components/FeedbackState';
+import StatusBadge from '../components/StatusBadge';
 
 const PAGE_SIZE = 10;
 
 const CampMap = () => {
     const navigate = useNavigate();
     const { isAdmin } = useAuth();
+    const { showToast } = useToast();
+    const { confirm } = useConfirmDialog();
     const defaults = getDefaultLocationSelection();
 
     const [camps, setCamps]               = useState([]);
@@ -64,17 +71,23 @@ const CampMap = () => {
             setShowModal(false);
             setNewCamp({ name: '', province: defaults.province, district: defaults.district, nearestHospital: '', location: '', date: '', startTime: '', endTime: '', googleMapLink: '' });
             fetchCamps();
-            alert('Camp Created Successfully!');
-        } catch (error) { console.error(error); alert('Failed to create camp'); }
+            showToast({ type: 'success', title: 'Camp created', message: 'The donation camp is now live in the schedule.' });
+        } catch (error) { console.error(error); showToast({ type: 'error', title: 'Create failed', message: 'Failed to create camp.' }); }
     };
 
     const handleDeleteCamp = async (campId) => {
-        if (!window.confirm('Delete this camp event?')) return;
+        const confirmed = await confirm({
+            title: 'Delete camp?',
+            message: 'This donation camp event will be permanently removed.',
+            confirmLabel: 'Delete'
+        });
+        if (!confirmed) return;
         try {
             await api.delete(`/api/camps/${campId}`);
             setSelectedCamp(null);
             fetchCamps();
-        } catch (error) { console.error(error); alert('Failed to delete camp'); }
+            showToast({ type: 'success', title: 'Camp deleted', message: 'The donation camp was removed.' });
+        } catch (error) { console.error(error); showToast({ type: 'error', title: 'Delete failed', message: 'Failed to delete camp.' }); }
     };
 
     const handleInterest = async (campId) => {
@@ -84,7 +97,8 @@ const CampMap = () => {
             const res = await api.post(`/api/camps/${campId}/interest`);
             setCamps(prev => prev.map(c => (c.id === campId ? res.data : c)));
             if (selectedCamp?.id === campId) setSelectedCamp(res.data);
-        } catch (error) { console.error(error); alert('Unable to register interest.'); }
+            showToast({ type: 'success', title: 'Interest registered', message: 'You will be notified about this camp.' });
+        } catch (error) { console.error(error); showToast({ type: 'error', title: 'Unable to register interest', message: 'Please try again in a moment.' }); }
         finally { setInterestSubmitting(false); }
     };
 
@@ -158,28 +172,29 @@ const CampMap = () => {
                 </div>
 
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '2rem' }}>
-                    {visibleCamps.map(camp => (
+                    {loading && (
+                        <div style={{ gridColumn: '1/-1' }}>
+                            <FeedbackState variant="loading" title="Loading camps" message="Fetching upcoming donation events." />
+                        </div>
+                    )}
+                    {!loading && visibleCamps.map(camp => (
                         <div key={camp.id} className="glass-panel" style={{ padding: '0', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
                             <div style={{ height: '8px', width: '100%', background: 'linear-gradient(90deg, var(--primary) 0%, var(--accent) 100%)' }}></div>
                             <div style={{ padding: '2rem', flex: 1, display: 'flex', flexDirection: 'column' }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '1rem' }}>
                                     <h3 style={{ fontSize: '1.25rem' }}>{camp.name}</h3>
-                                    <div style={{
-                                        ...getStatusStyle(camp.campStatus),
-                                        padding: '0.25rem 0.75rem', borderRadius: '9999px',
-                                        fontSize: '0.75rem', fontWeight: '600'
-                                    }}>
+                                    <StatusBadge status={camp.campStatus || 'UPCOMING'} style={getStatusStyle(camp.campStatus)}>
                                         {camp.campStatus || 'UPCOMING'}
-                                    </div>
+                                    </StatusBadge>
                                 </div>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.75rem', color: 'var(--text-muted)' }}>
-                                    <span>📍</span><span>{camp.location} ({camp.district}, {camp.province})</span>
+                                    <MapPin size={16} color="#64748B" /><span>{camp.location} ({camp.district}, {camp.province})</span>
                                 </div>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.75rem', color: 'var(--text-muted)' }}>
-                                    <span>📅</span><span>{new Date(camp.date).toLocaleDateString()}</span>
+                                    <Calendar size={16} color="#64748B" /><span>{new Date(camp.date).toLocaleDateString()}</span>
                                 </div>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem', color: 'var(--text-muted)' }}>
-                                    <span>⏰</span><span>{camp.startTime || camp.time || 'TBD'} - {camp.endTime || 'TBD'}</span>
+                                    <Clock size={16} color="#64748B" /><span>{camp.startTime || camp.time || 'TBD'} - {camp.endTime || 'TBD'}</span>
                                 </div>
                                 {isAdmin && (
                                     <div style={{ marginBottom: '1rem', fontSize: '0.875rem', color: 'var(--secondary)' }}>
@@ -196,8 +211,8 @@ const CampMap = () => {
                     ))}
 
                     {filteredCamps.length === 0 && !loading && (
-                        <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
-                            No camps found.
+                        <div style={{ gridColumn: '1/-1' }}>
+                            <FeedbackState variant="empty" title="No camps found" message="Try changing the search or create a new camp." />
                         </div>
                     )}
                 </div>
@@ -294,10 +309,10 @@ const CampMap = () => {
                     <div className="glass-panel" style={{ background: 'white', padding: '2rem', width: '100%', maxWidth: '560px' }}>
                         <h2 style={{ marginBottom: '1rem' }}>{selectedCamp.name}</h2>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '1.5rem', color: 'var(--secondary)' }}>
-                            <div>📍 {selectedCamp.location} ({selectedCamp.district}, {selectedCamp.province})</div>
-                            <div>🏥 Nearest: {selectedCamp.nearestHospital || 'N/A'}</div>
-                            <div>📅 {new Date(selectedCamp.date).toLocaleDateString()}</div>
-                            <div>⏰ {selectedCamp.startTime || selectedCamp.time || 'TBD'} - {selectedCamp.endTime || 'TBD'}</div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}><MapPin size={16} /> {selectedCamp.location} ({selectedCamp.district}, {selectedCamp.province})</div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}><Hospital size={16} /> Nearest: {selectedCamp.nearestHospital || 'N/A'}</div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}><Calendar size={16} /> {new Date(selectedCamp.date).toLocaleDateString()}</div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}><Clock size={16} /> {selectedCamp.startTime || selectedCamp.time || 'TBD'} - {selectedCamp.endTime || 'TBD'}</div>
                             <a
                                 href={selectedCamp.googleMapLink || (selectedCamp.lat && selectedCamp.lng
                                     ? `https://www.google.com/maps?q=${selectedCamp.lat},${selectedCamp.lng}`

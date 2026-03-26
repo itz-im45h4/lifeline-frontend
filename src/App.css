@@ -1,8 +1,3 @@
-/* Global Styles */
-body {
-    font-family: 'Inter', sans-serif;
-}
-
 /* Status Colors for Inventory Dashboard */
 .status-safe {
     background-color: #d4edda !important;
