@@ -37,7 +37,7 @@ const printBagLabel = (bag, showToast) => {
                         background: #f0f0f0;
                     }
                     .label-container {
-                        border: 2px solid #000; width: 340px; height: 420px; padding: 15px; 
+                        border: 2px solid #000; width: 340px; height: 320px; padding: 15px;
                         border-radius: 8px; background: #fff; box-sizing: border-box;
                         display: flex; flex-direction: column; justify-content: space-between;
                     }
@@ -61,11 +61,24 @@ const printBagLabel = (bag, showToast) => {
                     .detail-value {
                         font-weight: bold; margin-top: 2px; font-size: 0.85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
                     }
+                    .detail-value.compact {
+                        font-size: 0.72rem;
+                        line-height: 1.2;
+                    }
+                    .status-value {
+                        font-size: 0.74rem;
+                        line-height: 1.2;
+                        word-break: break-word;
+                    }
                     .barcode-placeholder {
                         text-align: center; border-top: 2px dashed #000; padding-top: 8px;
                     }
                     .barcode-bars {
-                        font-family: monospace; font-size: 1.5rem; letter-spacing: 2px; font-weight: bold;
+                        font-family: monospace; font-size: 1.35rem; letter-spacing: 2px; font-weight: bold;
+                        line-height: 1;
+                    }
+                    .barcode-id {
+                        font-size: 0.72rem; margin-top: 6px; font-weight: 600;
                     }
                     @page {
                         size: 4in 4.5in;
@@ -85,11 +98,11 @@ const printBagLabel = (bag, showToast) => {
                     <div class="details-grid">
                         <div class="detail-box">
                             <div class="detail-label">Bag ID</div>
-                            <div class="detail-value">#${bag.id}</div>
+                            <div class="detail-value compact">#${bag.id}</div>
                         </div>
                         <div class="detail-box">
                             <div class="detail-label">Status</div>
-                            <div class="detail-value">${bag.testStatus}</div>
+                            <div class="detail-value status-value">${bag.testStatus}</div>
                         </div>
                         <div class="detail-box">
                             <div class="detail-label">Collected</div>
@@ -100,15 +113,15 @@ const printBagLabel = (bag, showToast) => {
                             <div class="detail-value">${expiryDate}</div>
                         </div>
                     </div>
-                    
-                    <div class="detail-box" style="margin-top: 10px;">
+
+                    <div class="detail-box">
                         <div class="detail-label">Donor Name</div>
                         <div class="detail-value">${bag.donorName || 'Unknown Donor'}</div>
                     </div>
                     
                     <div class="barcode-placeholder">
                         <div class="barcode-bars">|| | ||| | || | |||</div>
-                        <div style="font-size: 0.8rem; margin-top: 5px; font-weight: 600;">*${bag.id}*</div>
+                        <div class="barcode-id">*${bag.id}*</div>
                     </div>
                 </div>
                 <script>
@@ -468,11 +481,18 @@ const LabDashboard = () => {
                                             </div>
                                         </div>
                                         <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                                            {isSafe && (
+                                            {!isPending && (
                                                 <button
                                                     className="btn"
-                                                    style={{ border: '1px solid #10B981', color: '#065F46', background: '#ECFDF5', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
-                                                        onClick={() => printBagLabel(bag, showToast)}
+                                                    style={{
+                                                        border: `1px solid ${isSafe ? '#10B981' : '#EF4444'}`,
+                                                        color: isSafe ? '#065F46' : '#991B1B',
+                                                        background: isSafe ? '#ECFDF5' : '#FEF2F2',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        gap: '0.4rem'
+                                                    }}
+                                                    onClick={() => printBagLabel(bag, showToast)}
                                                 >
                                                     <Printer size={16} /> Print Label
                                                 </button>
@@ -552,6 +572,11 @@ const LabDashboard = () => {
                                                             <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginTop: '0.2rem' }}>
                                                                 HIV: {row.hivPositive ? 'POS' : 'NEG'} • HEP: {row.hepPositive ? 'POS' : 'NEG'} • MAL: {row.malariaPositive ? 'POS' : 'NEG'}
                                                             </div>
+                                                            {row.positiveMarkers?.length > 0 && (
+                                                                <div style={{ marginTop: '0.2rem', fontSize: '0.8rem', color: '#991B1B', fontWeight: 600 }}>
+                                                                    Positive findings: {row.positiveMarkers.join(', ')}
+                                                                </div>
+                                                            )}
                                                             {row.reason && <div style={{ marginTop: '0.25rem', fontStyle: 'italic', color: '#475569' }}>Note: {row.reason}</div>}
                                                         </div>
                                                     ))}

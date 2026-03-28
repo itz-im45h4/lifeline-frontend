@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import api from '../services/api';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { MapPin, Calendar, Clock, Hospital } from 'lucide-react';
+import { MapPin, Calendar, Clock, Hospital, Edit2, Trash2 } from 'lucide-react';
 import {
     PROVINCES,
     getDefaultLocationSelection,
@@ -26,9 +26,10 @@ const CampMap = () => {
     const [camps, setCamps]               = useState([]);
     const [loading, setLoading]           = useState(true);
     const [showModal, setShowModal]       = useState(false);
+    const [editingCampId, setEditingCampId] = useState(null);
     const [newCamp, setNewCamp]           = useState({
         name: '', province: defaults.province, district: defaults.district,
-        nearestHospital: '', location: '', date: '', startTime: '', endTime: '', googleMapLink: ''
+        nearestHospital: '', location: '', date: '', startTime: '', endTime: '', googleMapLink: '', campStatus: 'UPCOMING'
     });
     const [hospitals, setHospitals]         = useState([]);
     const [selectedCamp, setSelectedCamp]   = useState(null);
@@ -64,15 +65,62 @@ const CampMap = () => {
 
     useEffect(() => { fetchCamps(); }, []);
 
-    const handleCreateCamp = async (e) => {
+    const closeModal = () => {
+        setShowModal(false);
+        setEditingCampId(null);
+        setNewCamp({
+            name: '',
+            province: defaults.province,
+            district: defaults.district,
+            nearestHospital: '',
+            location: '',
+            date: '',
+            startTime: '',
+            endTime: '',
+            googleMapLink: '',
+            campStatus: 'UPCOMING'
+        });
+    };
+
+    const handleSubmitCamp = async (e) => {
         e.preventDefault();
         try {
-            await api.post('/api/camps/create', newCamp);
-            setShowModal(false);
-            setNewCamp({ name: '', province: defaults.province, district: defaults.district, nearestHospital: '', location: '', date: '', startTime: '', endTime: '', googleMapLink: '' });
+            if (editingCampId) {
+                await api.put(`/api/camps/${editingCampId}`, newCamp);
+                showToast({ type: 'success', title: 'Camp updated', message: 'The donation camp details were updated successfully.' });
+                if (selectedCamp?.id === editingCampId) {
+                    setSelectedCamp(prev => prev ? { ...prev, ...newCamp } : prev);
+                }
+            } else {
+                await api.post('/api/camps/create', newCamp);
+                showToast({ type: 'success', title: 'Camp created', message: 'The donation camp is now live in the schedule.' });
+            }
+            closeModal();
             fetchCamps();
-            showToast({ type: 'success', title: 'Camp created', message: 'The donation camp is now live in the schedule.' });
-        } catch (error) { console.error(error); showToast({ type: 'error', title: 'Create failed', message: 'Failed to create camp.' }); }
+        } catch (error) {
+            console.error(error);
+            showToast({ type: 'error', title: 'Save failed', message: error?.response?.data?.message || 'Failed to save camp.' });
+        }
+    };
+
+    const openEditModal = (camp) => {
+        setEditingCampId(camp.id);
+        const province = camp.province || defaults.province;
+        const district = camp.district || defaults.district;
+        setNewCamp({
+            name: camp.name || '',
+            province,
+            district,
+            nearestHospital: camp.nearestHospital || '',
+            location: camp.location || '',
+            date: camp.date || '',
+            startTime: camp.startTime || '',
+            endTime: camp.endTime || '',
+            googleMapLink: camp.googleMapLink || '',
+            campStatus: camp.campStatus || 'UPCOMING'
+        });
+        setSelectedCamp(null);
+        setShowModal(true);
     };
 
     const handleDeleteCamp = async (campId) => {
@@ -148,7 +196,22 @@ const CampMap = () => {
                     </div>
                     <div style={{ display: 'flex', gap: '1rem' }}>
                         {isAdmin && (
-                            <button className="btn btn-primary" onClick={() => setShowModal(true)}>+ Add New Camp</button>
+                            <button className="btn btn-primary" onClick={() => {
+                                setEditingCampId(null);
+                                setNewCamp({
+                                    name: '',
+                                    province: defaults.province,
+                                    district: defaults.district,
+                                    nearestHospital: '',
+                                    location: '',
+                                    date: '',
+                                    startTime: '',
+                                    endTime: '',
+                                    googleMapLink: '',
+                                    campStatus: 'UPCOMING'
+                                });
+                                setShowModal(true);
+                            }}>+ Add New Camp</button>
                         )}
                         <button className="btn" style={{ border: '1px solid #E2E8F0' }} onClick={() => navigate(-1)}>← Back</button>
                     </div>
@@ -197,8 +260,30 @@ const CampMap = () => {
                                     <Clock size={16} color="#64748B" /><span>{camp.startTime || camp.time || 'TBD'} - {camp.endTime || 'TBD'}</span>
                                 </div>
                                 {isAdmin && (
-                                    <div style={{ marginBottom: '1rem', fontSize: '0.875rem', color: 'var(--secondary)' }}>
-                                        Interested: {camp.interestCount || 0}
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', marginBottom: '1rem' }}>
+                                        <div style={{ fontSize: '0.875rem', color: 'var(--secondary)' }}>
+                                            Interested: {camp.interestCount || 0}
+                                        </div>
+                                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                            <button
+                                                title="Edit Camp"
+                                                style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#2563EB', padding: '0.4rem', borderRadius: '8px', transition: 'background 0.2s' }}
+                                                onMouseEnter={e => e.currentTarget.style.background = 'rgba(37,99,235,0.1)'}
+                                                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                                                onClick={() => openEditModal(camp)}
+                                            >
+                                                <Edit2 size={18} />
+                                            </button>
+                                            <button
+                                                title="Delete Camp"
+                                                style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#DC2626', padding: '0.4rem', borderRadius: '8px', transition: 'background 0.2s' }}
+                                                onMouseEnter={e => e.currentTarget.style.background = 'rgba(220,38,38,0.1)'}
+                                                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                                                onClick={() => handleDeleteCamp(camp.id)}
+                                            >
+                                                <Trash2 size={18} />
+                                            </button>
+                                        </div>
                                     </div>
                                 )}
                                 <div style={{ marginTop: 'auto' }}>
@@ -241,8 +326,8 @@ const CampMap = () => {
             {showModal && (
                 <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
                     <div className="glass-panel" style={{ background: 'white', padding: '2rem', width: '100%', maxWidth: '560px' }}>
-                        <h2 style={{ marginBottom: '1.5rem' }}>Add New Donation Camp</h2>
-                        <form onSubmit={handleCreateCamp}>
+                        <h2 style={{ marginBottom: '1.5rem' }}>{editingCampId ? 'Edit Donation Camp' : 'Add New Donation Camp'}</h2>
+                        <form onSubmit={handleSubmitCamp}>
                             <div className="input-group">
                                 <label className="input-label">Camp Name</label>
                                 <input className="input-field" required value={newCamp.name} onChange={e => setNewCamp({ ...newCamp, name: e.target.value })} />
@@ -280,10 +365,18 @@ const CampMap = () => {
                                 <label className="input-label">Google Location Link</label>
                                 <input className="input-field" placeholder="https://maps.google.com/..." value={newCamp.googleMapLink} onChange={e => setNewCamp({ ...newCamp, googleMapLink: e.target.value })} />
                             </div>
+                            <div className="input-group">
+                                <label className="input-label">Camp Status</label>
+                                <select className="input-field" value={newCamp.campStatus} onChange={e => setNewCamp({ ...newCamp, campStatus: e.target.value })}>
+                                    <option value="UPCOMING">UPCOMING</option>
+                                    <option value="ONGOING">ONGOING</option>
+                                    <option value="ENDED">ENDED</option>
+                                </select>
+                            </div>
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
                                 <div className="input-group">
                                     <label className="input-label">Date</label>
-                                    <input type="date" className="input-field" required value={newCamp.date} min={new Date().toISOString().slice(0, 10)} onChange={e => setNewCamp({ ...newCamp, date: e.target.value })} />
+                                    <input type="date" className="input-field" required value={newCamp.date} min={editingCampId ? undefined : new Date().toISOString().slice(0, 10)} onChange={e => setNewCamp({ ...newCamp, date: e.target.value })} />
                                 </div>
                                 <div className="input-group">
                                     <label className="input-label">Start Time</label>
@@ -295,8 +388,8 @@ const CampMap = () => {
                                 </div>
                             </div>
                             <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem' }}>
-                                <button type="button" className="btn" onClick={() => setShowModal(false)} style={{ flex: 1, border: '1px solid #E2E8F0' }}>Cancel</button>
-                                <button type="submit" className="btn btn-primary" style={{ flex: 1 }}>Create Camp</button>
+                                <button type="button" className="btn" onClick={closeModal} style={{ flex: 1, border: '1px solid #E2E8F0' }}>Cancel</button>
+                                <button type="submit" className="btn btn-primary" style={{ flex: 1 }}>{editingCampId ? 'Save Changes' : 'Create Camp'}</button>
                             </div>
                         </form>
                     </div>
@@ -327,9 +420,14 @@ const CampMap = () => {
                         <div style={{ display: 'flex', gap: '1rem' }}>
                             <button type="button" className="btn" onClick={() => setSelectedCamp(null)} style={{ flex: 1, border: '1px solid #E2E8F0' }}>Close</button>
                             {isAdmin ? (
-                                <button type="button" className="btn" style={{ flex: 1, background: '#FEE2E2', color: '#B91C1C' }} onClick={() => handleDeleteCamp(selectedCamp.id)}>
-                                    Delete Camp
-                                </button>
+                                <>
+                                    <button type="button" className="btn" style={{ flex: 1, background: '#DBEAFE', color: '#1D4ED8' }} onClick={() => openEditModal(selectedCamp)}>
+                                        Update Camp
+                                    </button>
+                                    <button type="button" className="btn" style={{ flex: 1, background: '#FEE2E2', color: '#B91C1C' }} onClick={() => handleDeleteCamp(selectedCamp.id)}>
+                                        Delete Camp
+                                    </button>
+                                </>
                             ) : (
                                 <button type="button" className="btn btn-primary" style={{ flex: 1 }} onClick={() => handleInterest(selectedCamp.id)} disabled={interestSubmitting}>
                                     {interestSubmitting ? 'Submitting...' : "I'm Interested"}
